@@ -1,0 +1,25 @@
+{
+  "name": "fframes-node",
+  "version": "0.1.0",
+  "description": "Node.js port of fframes — programmatic video framework: explicit per-frame SVG tree model, CPU rendering via resvg, FFmpeg CLI encoding, sample-accurate audio DSP",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "fframes": "./src/cli/main.ts"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "typecheck": "tsc --noEmit",
+    "studio": "node --env-file-if-exists=.env src/studio/server.ts"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Local environment. `.env` carries the real LLM_API_KEY — never commit it.
+# `.env.example` is the published template and intentionally stays tracked.
+.env
+.env.test
+.env.test.novision
+
+# Studio runtime workspace: generated projects, uploaded media, renders.
+# Written as `.studio/*` (not `.studio/`) so the mock fixtures can be re-included —
+# git will not descend into a fully-ignored directory, and `!.studio/mock/` below
+# would be a no-op. test/studio/llm.test.ts reads .studio/mock/{video.ts,vision.txt,asset.png}.
+.studio/*
+!.studio/mock/
+
+# Render output
+out/
+*.mp4
+frame-*.png
+frame-*.svg
+
+# Generated audio, EXCEPT the example source media that the audio examples (and the
+# gate that renders them) depend on: examples/*/media/*.wav. Scoped to media/ so a
+# rendered examples/audio-demo/audio-demo.wav is still ignored.
+*.wav
+!examples/**/media/*.wav
+
+# OS / editor / logs
+.DS_Store
+*.log

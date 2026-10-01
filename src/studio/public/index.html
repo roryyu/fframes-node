@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>fframes-node Studio</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <!--
+      index.html — fframes-node Studio front end (page.md §7.1).
+
+      Layout follows the §1 sketch top to bottom: ① generation, ② code beside ③ preview, ⑥ assets,
+      ④ render, ⑤ console. `styles.css` does the grid; this file is only structure plus the ids
+      `app.js` binds to.
+
+      Two deliberate conventions:
+
+      - **Unquoted id / type attributes** (`id=nl`, `type=file`). The gate greps the served HTML for
+        those literal strings (gate S3), and the panel ids are exactly the contract's contract:
+        every id here is also an id in §7.1.
+      - **No inline behaviour.** Every listener lives in `app.js`; nothing here has an `onclick`, so
+        the markup stays declarative and the state machine has one owner.
+    -->
+    <header class="topbar">
+      <h1>fframes-node <span class="muted">Studio</span></h1>
+      <p class="topbar-meta">
+        <span id=badge-model class="badge">模型加载中…</span>
+        <span id=badge-mode class="badge badge-dim"></span>
+        <span id=badge-project class="badge badge-dim">未创建项目</span>
+        <span id=badge-status class="badge badge-status" data-status="idle">idle</span>
+      </p>
+      <p class="topbar-warn">
+        本地工具：只在 127.0.0.1 监听。生成的 <code>video.ts</code> 会被 <code>import</code> 并执行，请勿暴露到公网。
+      </p>
+    </header>
+
+    <main class="workbench">
+      <!-- ① 自然语言生成 -->
+      <section class="panel panel-generate" aria-labelledby="h-generate">
+        <h2 id=h-generate><span class="idx">①</span> 自然语言 → <code>video.ts</code></h2>
+        <textarea id=nl rows=4 spellcheck=false
+          placeholder="做一个 5 秒的开场，深蓝渐变背景，中间白字淡入标题 'Hello fframes'，底部有一个青色进度条从左滑到右"></textarea>
+        <div class="row">
+          <button id=generate type=button class="primary">生成</button>
+          <span class="hint">Enter 生成 · Shift+Enter 换行</span>
+        </div>
+        <div class="row">
+          <span class="label">示例</span>
+          <span id=chips class="chips"></span>
+        </div>
+        <div class="row">
+          <span class="label">参考素材</span>
+          <span id=refs class="refs"><span class="muted">（还没有素材，先在 ⑥ 生成或上传）</span></span>
+        </div>
+      </section>
+
+      <!-- ② 代码 + ③ 预览 -->
+      <div class="grid-two">
+        <section class="panel panel-code" aria-labelledby="h-code">
+          <h2 id=h-code><span class="idx">②</span> <code>video.ts</code>（可手改）</h2>
+          <textarea id=code spellcheck=false
+            placeholder="生成结果会填到这里，可以直接改，然后点「校验并预览」"></textarea>
+          <div class="row">
+            <button id=validate type=button>校验并预览</button>
+            <span class="hint">重新导入并校验，失败会打印阶段与错误</span>
+          </div>
+        </section>
+
+        <section class="panel panel-preview" aria-labelledby="h-preview">
+          <h2 id=h-preview><span class="idx">③</span> 单帧预览（擦洗）</h2>
+          <div class="frame-shell">
+            <img id=frame alt="单帧预览">
+            <p id=frame-empty class="frame-empty">还没有可预览的帧</p>
+          </div>
+          <div class="row row-scrub">
+            <button id=scrub-prev type=button class="ghost step-btn" title="上一帧" aria-label="上一帧">&minus;1</button>
+            <input type=range id=scrub min=0 max=0 value=0 step=1>
+            <button id=scrub-next type=button class="ghost step-btn" title="下一帧" aria-label="下一帧">+1</button>
+            <output id=scrub-out class="mono">0</output>
+          </div>
+          <div class="row">
+            <label class="label" for=spec>spec</label>
+            <input id=spec type=text placeholder="帧号，或 50% / 1.2s / Intro@1.2s">
+            <button id=frame-go type=button class="ghost">取帧</button>
+          </div>
+          <div class="readouts">
+            <div class="readout">
+              <h3>时间轴</h3>
+              <pre id=timeline class="mono small">—</pre>
+            </div>
+            <div class="readout">
+              <h3>场景</h3>
+              <pre id=scenes class="mono small">—</pre>
+            </div>
+            <div class="readout">
+              <h3>校验</h3>
+              <pre id=validation class="mono small">—</pre>
+            </div>
+          </div>
+          <div class="readout">
+            <h3>findings</h3>
+            <ul id=findings class="findings"><li class="muted">—</li></ul>
+          </div>
+        </section>
+      </div>
+
+      <!-- ⑥ 素材库 -->
+      <section class="panel panel-assets" aria-labelledby="h-assets">
+        <h2 id=h-assets><span class="idx">⑥</span> 素材库 <span class="muted">(media/，供 <code>ctx.getImage()</code> 引用)</span></h2>
+        <div class="assets-bar">
+          <label class="label" for=upload>上传图片</label>
+          <input id=upload type=file accept=image/png,image/jpeg,image/gif>
+          <span id=upload-hint class="hint">png · jpg · gif，上传后由视觉模型描述</span>
+          <span class="sep"></span>
+          <label class="label" for=asset-prompt>生成素材</label>
+          <input id=asset-prompt type=text placeholder="蓝色圆形标志，扁平风，中心留白">
+          <label class="label" for=asset-size>尺寸</label>
+          <select id=asset-size>
+            <option value="1024x1024">1024x1024</option>
+            <option value="1024x1792">1024x1792</option>
+            <option value="1792x1024">1792x1024</option>
+            <option value="512x512">512x512</option>
+          </select>
+          <button id=asset-gen type=button>生成</button>
+        </div>
+        <div id=assets class="assets">
+          <p class="muted">素材网格为空。上传一张图，或描述一张让图片模型生成。</p>
+        </div>
+      </section>
+
+      <!-- ④ 渲染整片 -->
+      <section class="panel panel-render" aria-labelledby="h-render">
+        <h2 id=h-render><span class="idx">④</span> 渲染整片（mp4）</h2>
+        <div class="row">
+          <label class="check"><input id=draft type=checkbox checked> 草稿（半分辨率 + ultrafast）</label>
+          <label class="label" for=range>范围</label>
+          <input id=range type=text placeholder="留空=全片，或 10..60 / 1s..2s">
+          <button id=render type=button class="primary">渲染</button>
+        </div>
+        <div class="row progress-row">
+          <div class="bar"><div id=bar class="bar-fill"></div></div>
+          <span id=progress class="mono">—</span>
+        </div>
+        <div class="player-shell">
+          <video id=player controls preload=metadata></video>
+          <p id=player-empty class="muted">渲染完成后在这里播放（支持拖动进度条）</p>
+        </div>
+      </section>
+
+      <!-- ⑤ 控制台 -->
+      <section class="panel panel-console" aria-labelledby="h-console">
+        <h2 id=h-console><span class="idx">⑤</span> 控制台</h2>
+        <pre id=log class="mono"></pre>
+        <div class="row">
+          <button id=log-clear type=button class="ghost">清空</button>
+          <span class="hint">所有失败都写在这里（不弹窗）</span>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
