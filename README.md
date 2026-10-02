@@ -13,12 +13,6 @@ full list of what is and is not here.
 node src/cli/main.ts examples/hello-world/video.ts render -o out.mp4
 ```
 
-## Showcase
-
-A demo rendered with fframes-node — [`ladder.mp4`](./ladder.mp4):
-
-<video src="./ladder.mp4" controls loop muted playsInline width="720"></video>
-
 ## Requirements
 
 - **Node ≥ 24** — the sources are TypeScript run through Node's native type stripping, so there is

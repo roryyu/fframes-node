@@ -16,7 +16,7 @@ node_modules/
 
 # Render output
 out/
-*.mp4
+
 frame-*.png
 frame-*.svg
 
