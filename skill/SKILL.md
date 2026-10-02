@@ -13,6 +13,46 @@ Run every command **from the `fframes-node` repo root**.
 
 ---
 
+## 0. Dependencies & setup
+
+Before the first render, make sure the runtime dependencies are installed. From the repo root:
+
+```sh
+# 1. Node ≥ 24 (the sources are TypeScript run through Node's native type stripping)
+node --version          # must print v24 or newer
+
+# 2. npm packages — installs @resvg/resvg-js (the SVG rasterizer); no build step
+npm install
+
+# 3. ffmpeg + ffprobe must be on PATH — encoding, audio decoding, duration probing
+ffmpeg -version && ffprobe -version
+```
+
+| Dependency | Why it is needed | How to get it |
+| --- | --- | --- |
+| **Node ≥ 24** | Runs `.ts` directly (type stripping); older Node cannot load the modules. | `nvm install 24 && nvm use 24` |
+| **`@resvg/resvg-js`** | CPU rasterizer behind every frame (`src/render/`). | `npm install` (listed in `dependencies`) |
+| **ffmpeg / ffprobe** | `render` / `audio render` encode video+audio; `duration()`/probing reads media lengths. | `brew install ffmpeg` (macOS) / your package manager |
+| **Fonts** | The renderer registers **exactly** the files returned by `fonts()`; system font loading is off. | Reference real font files (e.g. `/System/Library/Fonts/Helvetica.ttc`). |
+
+- Only `@resvg/resvg-js` is a runtime npm package; `typescript` and `@types/node` are dev-only
+  (`npm run typecheck` uses them, rendering does not).
+- If `npm install` fails on `@resvg/resvg-js`, it is almost always a Node version mismatch — check
+  `node --version` first.
+- `render`/`audio render` shell out to **ffmpeg**; if it is missing they fail at encode time even
+  though `timeline`, `svg` and `inspect` still work.
+- Optional: `npm link` registers a global `fframes` bin, so you can run `fframes <video.ts> …`
+  instead of `node src/cli/main.ts <video.ts> …`.
+
+Verify the setup with a cheap command before rendering:
+
+```sh
+node src/cli/main.ts examples/hello-world/video.ts timeline   # loads the module, no ffmpeg needed
+node src/cli/main.ts examples/hello-world/video.ts render --draft -o draft.mp4   # full pipeline
+```
+
+---
+
 ## 1. The CLI
 
 ### Invocation

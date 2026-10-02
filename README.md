@@ -45,6 +45,19 @@ node src/cli/main.ts examples/hello-world/video.ts render -o out.mp4
 node examples/hello-world/main.ts render -o out.mp4
 ```
 
+### Install the Agent Skill
+
+This repo ships a coding-agent skill at [`skill/SKILL.md`](./skill/SKILL.md). Paste the prompt
+below into your agent (Qoder, Claude Code, Codex, …) and it will fetch the skill from the online
+address and register it, so the agent knows how to author and render `video.ts` scripts for you.
+
+```text
+Install the Agent Skill located at https://github.com/roryyu/fframes-node/tree/master/skill
+into this project's skills directory. Read its SKILL.md, keep the frontmatter `name` and
+`description` intact, and make the skill available so that future requests to create, render,
+inspect or mix a fframes-node video use it.
+```
+
 ## Writing a video
 
 A video is an object with a geometry, a length, an audio map and a `renderFrame`. Nothing else.
