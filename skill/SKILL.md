@@ -1,6 +1,6 @@
 ---
 name: fframes-node
-description: Author and render programmatic videos with the fframes-node CLI. Use when the user wants to render/preview a video.ts, inspect frames, print SVG, list the timeline, mix or analyze audio, or write a new fframes video script (Video/Scene/renderFrame, animation, audio map, fonts, media).
+description: Author and render programmatic videos with the fframes-node CLI. Use when the user wants to render/preview a video.ts, inspect frames, print SVG, list the timeline, mix or analyze audio, write a new fframes video script (Video/Scene/renderFrame, animation, audio map, fonts, media), or create art-style animations using the integrated huashu-art-motion module (35 art styles, 9 explainer grammars, transitions).
 ---
 
 # fframes-node — CLI & video scripting
@@ -312,3 +312,98 @@ audio(): AudioMap {
 - Typical loop: `timeline` to see scenes → `svg 1s` / `frame 1s` to eyeball a frame →
   `inspect --every-frame` for missing media/fonts/empty frames → `render --draft` for a fast
   preview → `render -o out.mp4` for the final encode.
+
+---
+
+## 4. Art-style animation module (`src/art/`)
+
+The `src/art/` module integrates the **huashu-art-motion** knowledge base: 35 art styles,
+9 explainer grammars, and 9 transition effects, all as SVG/TypeScript modules.
+
+### Quick start
+
+```ts
+import { getStyle, getGrammar, getTransition, listStyles, STYLE_INDEX } from '../src/art/index.ts';
+import '../src/art/styles/index.ts';      // auto-registers all styles
+import '../src/art/grammars/index.ts';    // auto-registers all grammars
+import '../src/art/transitions/index.ts'; // auto-registers all transitions
+
+// In a Scene's renderFrame:
+const style = getStyle('09_postimp');     // Van Gogh style
+if (style) {
+  return style.renderFrame(frame, ctx, {
+    width: 1920,
+    height: 1080,
+    localTime: frame.seconds(),
+    globalTime: frame.seconds(),
+  });
+}
+```
+
+### Available art styles
+
+| ID | Name | Period | Quality |
+| --- | --- | --- | --- |
+| `01_cave` | 洞穴岩画 | 公元前 40000 年 | ★★★ |
+| `09_postimp` | 梵高（后印象派） | 1889 | ★★★ |
+| `12_bauhaus` | 包豪斯 | 1920s | ★★★ |
+| `13_pop` | 波普艺术 | 1960s | ★★★ |
+| `14_8bit` | 8-bit 像素 | 1980s | ★★★ |
+| `17_ink` | 中国水墨 | 传统 | ★★★ |
+| `26_vaporwave` | 蒸汽波 | 2010s | ★★★ |
+
+See `STYLE_INDEX` for the full list of 35 styles with metadata.
+
+### Explainer grammars
+
+| ID | Name | Description |
+| --- | --- | --- |
+| `kurzgesagt` | Kurzgesagt 扁平科普 | 深色系、发光体、有机形状、神经网络 |
+| `finance_chart` | 财经图表 | Economist 风格、红柱蓝线、标注、计数动画 |
+
+### Transitions
+
+| ID | Name | Duration |
+| --- | --- | --- |
+| `fade` | 淡入淡出 | 0.5s |
+| `cut` | 硬切 | 0s |
+| `swirl` | 星空漩涡 | 0.8s |
+| `pixel` | 像素化 | 0.6s |
+| `page_turn` | 翻页 | 0.7s |
+| `bauhaus` | 包豪斯几何 | 0.8s |
+| `vhs` | VHS 撕裂 | 0.5s |
+| `ink_bloom` | 墨晕扩散 | 0.9s |
+| `pop_flash` | 波普闪光 | 0.4s |
+
+### Core utilities
+
+- **`math.ts`** — `clamp`, `lerp`, `ss` (smoothstep), `rng` (mulberry32), `hash`, `ease`,
+  `smooth`, `thereAndBack`, `rushInto`, `rushFrom`, `wiggle`, `lagged`, `spring`, `noise` (Perlin 2D), `fbm`
+- **`color.ts`** — `hex`, `rgb`, `toHex`, `mix`, `jitter`, `swatch`, `luminance`, `warmShift`, `hsl`, `toHsl`
+- **`svg-path.ts`** — `densify` (Catmull-Rom), `resample` (等弧长), `pointsToPath`, `ribbonPath`,
+  `roughPathData`, `starPath`, `blobPath`, `cutPath`, `spiralPts`, `wavyPts`
+- **`types.ts`** — `ArtStyleScene`, `ArtStyleParams`, `ExplainerGrammar`, `ArtTransition`, `choreo`
+
+### Example
+
+`examples/art-styles/video.ts` demonstrates 7 styles in a 31-second journey through art history:
+
+```sh
+node src/cli/main.ts examples/art-styles/video.ts timeline
+node src/cli/main.ts examples/art-styles/video.ts frame --at 5s -o /tmp/frames
+node src/cli/main.ts examples/art-styles/video.ts render --draft -o art-styles.mp4
+```
+
+### Font note
+
+The art module uses `font-family="Helvetica"` and `font-family="PingFang SC"` (for Chinese text).
+Make sure your `fonts()` returns the corresponding font files:
+
+```ts
+fonts() {
+  return [
+    '/System/Library/Fonts/Helvetica.ttc',
+    '/System/Library/Fonts/PingFang.ttc',
+  ];
+}
+```
