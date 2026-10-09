@@ -90,4 +90,5 @@ export const STYLE_INDEX = [
   { id: '34_shadowpuppet', name: '中国皮影', period: '传统', quality: 3, shortcomings: '重叠处相乘发黑' },
   { id: '35_shinkai', name: '新海诚光影', period: '当代', quality: 2, shortcomings: '室内背景密度不够' },
   { id: '36_picasso_blue', name: '毕加索蓝色时期', period: '1901-1904', quality: 2, shortcomings: '造型不够忧郁' },
+  { id: '37_xiaohei', name: '小黑漫画风', period: '当代', quality: 3, shortcomings: '' },
 ] as const;

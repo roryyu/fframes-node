@@ -7,7 +7,9 @@ the audio and hands both to FFmpeg.
 The Rust original is MIT licensed; this port is a derivative work and carries the same licence.
 The rendering backend is a different one (`@resvg/resvg-js` instead of tiny-skia), the CLI is
 hand-written instead of `clap`, and there is no GPU backend — see [PORTING.md](./PORTING.md) for the
-full list of what is and is not here.
+full list of what is and is not here. On top of the ported core this repo adds
+[`src/art/`](#art-style-animation-module), a library of art-style scenes, explainer grammars and
+transitions that has no counterpart upstream.
 
 ```sh
 node src/cli/main.ts examples/hello-world/video.ts render -o out.mp4
@@ -265,13 +267,103 @@ await renderVideo(session, { range: session.index.fullRange(), output: 'out.mp4'
 ```
 
 Everything the modules export is re-exported from `src/index.ts`; the deep paths are the port's
-internal structure, not part of the contract. The one exception is `src/cli/main.ts`: the CLI is a
-separate entry point, imported by path, because `index.ts` cannot statically depend on a module
-that ends in a top-level `await` (that would deadlock every direct `node src/cli/main.ts …` run).
+internal structure, not part of the contract. There are two exceptions. The first is
+`src/cli/main.ts`: the CLI is a separate entry point, imported by path, because `index.ts` cannot
+statically depend on a module that ends in a top-level `await` (that would deadlock every direct
+`node src/cli/main.ts …` run). The second is [`src/art/`](#art-style-animation-module), which is an
+addition to the port and keeps its own public surface.
 
 ```ts
 import { run } from './src/cli/main.ts';   // not re-exported from src/index.ts
 ```
+
+## Art-style animation module
+
+`src/art/` is an addition to the port — it is not in the Rust original. It holds reusable
+`Scene`-like building blocks that turn a frame number plus a style id into a finished SVG tree, so a
+video can be "a Van Gogh scene" instead of hand-written paths.
+
+```
+src/art/math.ts       easing, interpolation and seeded noise: clamp / lerp / seg / ss / smooth /
+                      ease / spring / rng / noise / fbm …
+src/art/color.ts      hex / rgb / hsl conversion, mix, lighten, darken, luminance, jitter, swatch,
+                      warmShift, alphaBlend
+src/art/svg-path.ts   path data and point geometry: densify, resample, pointsToPath,
+                      pointsToSmoothPath, ribbonPath, roughPathData, starPath, blobPath, cutPath,
+                      rectPts, ellipsePts, spiralPts, wavyPts, deform, bez
+src/art/types.ts      ArtStyleScene, ExplainerGrammar, ArtTransition, Choreography, choreo()
+src/art/registry.ts   registerStyle / getStyle / listStyles, STYLE_INDEX
+src/art/styles/       the 8 style implementations + index.ts
+src/art/grammars/     explainer grammars (2) + index.ts
+src/art/transitions/  transitions (9) + index.ts
+src/art/index.ts      the module's public surface
+```
+
+`math.ts` is deterministic throughout — seeded random, no clock reads — which is what makes a frame
+reproducible: the same index always yields the same picture.
+
+A style is an `ArtStyleScene`: `{ id, name, period, quality, shortcomings, renderFrame }`. Its
+`renderFrame(frame, ctx, params)` takes `{ width, height, localTime, globalTime, data? }` and returns
+a tree with no `<svg>` root of its own, ready to be interpolated into the parent frame.
+
+**`src/art/` is not re-exported from `src/index.ts`** — you import it by path, and
+`import { getStyle } from './src/index.ts'` silently gives you `undefined`. Registering the styles is
+a side effect of importing the barrel, so that import is not optional either:
+
+```ts
+import { getStyle } from './src/art/index.ts';   // this path, not src/index.ts
+import './src/art/styles/index.ts';              // side effect: registers every style
+
+const style = getStyle('09_postimp');            // Van Gogh
+if (style) {                                     // undefined for unimplemented ids
+  return style.renderFrame(frame, ctx, {
+    width: 1920, height: 1080,
+    localTime: frame.seconds(), globalTime: frame.seconds(),
+  });
+}
+```
+
+**Count the implementations, not the index.** `STYLE_INDEX` carries metadata for 36 styles, but only
+8 of them exist as code: `01_cave`, `09_postimp`, `12_bauhaus`, `13_pop`, `14_8bit`, `17_ink`,
+`26_vaporwave`, `37_xiaohei`. The other 28 are placeholders — `getStyle` returns `undefined` for
+them, so always guard the result or check `listStyles()`. Likewise there are 2 explainer grammars
+(`kurzgesagt`, `finance-chart`) and 9 transitions, whatever the longer upstream catalogues suggest.
+
+### The `37_xiaohei` style
+
+`37_xiaohei` (小黑漫画风) was ported from `ian-xiaohei-svg-motion`, the only animation style under
+`skills/chengfeng-visual/animation-styles/` in
+[Agentchengfeng/chengfeng-videocut-skills](https://github.com/Agentchengfeng/chengfeng-videocut-skills).
+What came across is the *design language*, not the upstream code: that style animates GSAP timelines
+over HTML, which this renderer cannot play, so the animation is re-expressed on `localTime` and the
+SVG layers the renderer understands.
+
+| role | colour |
+| --- | --- |
+| background | `#ffffff` — ≥ 35 % of the frame stays empty |
+| lines, character, main object | `#1a1a1a` |
+| flow / arrows | `#e8722a` |
+| problem / breakpoint | `#d94040` |
+| context / annotations | `#3a7bd5` |
+
+The scene tells one story in 7 one-second beats — context, input move, breakpoint, next segment,
+output move, result, summary — and layers the SVG in the upstream's fixed order (background →
+main object → character → inputs → outputs → failure → arrows → annotations), so an arrow always
+draws above the object it connects and an annotation always appears after the object it names.
+
+`examples/xiaohei-motion/video.ts` is the smallest complete use: a title card, then the style scene
+with a beat indicator composited on top. Note that scenes play **sequentially**, not in parallel — an
+overlay has to be drawn inside the scene it belongs to, not added as a second scene.
+
+```sh
+node src/cli/main.ts examples/xiaohei-motion/video.ts render --draft -o xiaohei.mp4
+```
+
+Nothing else from that repository was portable. All 7 of its top-level skills — `chengfeng-cut`,
+`-subtitle`, `-export`, `-visual`, `-check-updates`, `-report-bug` and `-videocut-workbench` — shell
+out to a private `videocut-cli.cjs` Runtime and drive real timeline, material and project operations
+against it. That editing model has no equivalent here: this framework renders frames it computes
+itself, so only the style rules could come across, not the operations.
 
 ## Examples
 
@@ -280,6 +372,8 @@ import { run } from './src/cli/main.ts';   // not re-exported from src/index.ts
 | `examples/hello-world` | two scenes, a six stop background animation, the frame counter (ported from the Rust example) |
 | `examples/audio-demo` | two tracks on one file, one ducked under the other; `media/sine.wav` is a 10 s 440 Hz tone |
 | `examples/broken-video` | a missing font and a missing audio file, for `inspect` to find (exit code 2) |
+| `examples/art-styles` | a 31 s tour of the `src/art` styles: cave → Van Gogh → Bauhaus → Pop → 8-bit → Vaporwave → ink |
+| `examples/xiaohei-motion` | the `37_xiaohei` style on its own: a 7-beat "sorting task" scene with a beat indicator |
 
 ## Repository layout
 
@@ -291,6 +385,7 @@ src/render/     the resvg backend and the render session
 src/encode/     the ffmpeg encoder
 src/inspect/    the diagnostics behind `inspect`
 src/cli/        the command line
+src/art/        art-style scenes, explainer grammars and transitions (an addition, not in the Rust original)
 src/index.ts    the public API
 ```
 

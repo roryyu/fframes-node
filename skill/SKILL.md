@@ -1,6 +1,6 @@
 ---
 name: fframes-node
-description: Author and render programmatic videos with the fframes-node CLI. Use when the user wants to render/preview a video.ts, inspect frames, print SVG, list the timeline, mix or analyze audio, write a new fframes video script (Video/Scene/renderFrame, animation, audio map, fonts, media), or create art-style animations using the integrated huashu-art-motion module (35 art styles, 9 explainer grammars, transitions).
+description: Author and render programmatic videos with the fframes-node CLI. Use when the user wants to render/preview a video.ts, inspect frames, print SVG, list the timeline, mix or analyze audio, write a new fframes video script (Video/Scene/renderFrame, animation, audio map, fonts, media), or create art-style animations using the integrated huashu-art-motion module (36 indexed art styles, 8 implemented, plus explainer grammars and transitions).
 ---
 
 # fframes-node — CLI & video scripting
@@ -317,8 +317,12 @@ audio(): AudioMap {
 
 ## 4. Art-style animation module (`src/art/`)
 
-The `src/art/` module integrates the **huashu-art-motion** knowledge base: 35 art styles,
-9 explainer grammars, and 9 transition effects, all as SVG/TypeScript modules.
+The `src/art/` module integrates the **huashu-art-motion** knowledge base, plus one style ported
+separately (`37_xiaohei`, from `chengfeng-videocut-skills`). Everything is SVG/TypeScript modules.
+
+`STYLE_INDEX` carries metadata for 36 styles, but only 8 have an implementation; 2 explainer grammars
+and 9 transitions are implemented. Resolve ids through `getStyle` and guard the result rather than
+assuming every indexed style exists.
 
 ### Quick start
 
@@ -351,8 +355,12 @@ if (style) {
 | `14_8bit` | 8-bit 像素 | 1980s | ★★★ |
 | `17_ink` | 中国水墨 | 传统 | ★★★ |
 | `26_vaporwave` | 蒸汽波 | 2010s | ★★★ |
+| `37_xiaohei` | 小黑漫画风 | 当代 | ★★★ |
 
-See `STYLE_INDEX` for the full list of 35 styles with metadata.
+See `STYLE_INDEX` for the full list of 36 registered styles with metadata. Only the 8 styles in the
+table above have an implementation — the other 28 are metadata-only, so `getStyle('02_egypt')`
+returns `undefined`. Guard the result, or check `listStyles()` (which returns the 8 implemented
+`ArtStyleScene` objects) before relying on an id.
 
 ### Explainer grammars
 
@@ -392,6 +400,40 @@ See `STYLE_INDEX` for the full list of 35 styles with metadata.
 node src/cli/main.ts examples/art-styles/video.ts timeline
 node src/cli/main.ts examples/art-styles/video.ts frame --at 5s -o /tmp/frames
 node src/cli/main.ts examples/art-styles/video.ts render --draft -o art-styles.mp4
+```
+
+### Xiaohei style (`37_xiaohei`)
+
+Ported from [chengfeng-videocut-skills / ian-xiaohei-svg-motion](https://github.com/Agentchengfeng/chengfeng-videocut-skills).
+White 16:9 canvas, black hand-drawn linework, orange/red/blue annotations, 7-beat narrative progression.
+
+**Color roles:**
+
+| Color | Hex | Usage |
+| --- | --- | --- |
+| Black | `#1a1a1a` | Linework, Xiaohei, objects, main text |
+| Orange | `#e8722a` | Main path, flow direction, motion arrows |
+| Red | `#d94040` | Problems, breakpoints, warnings |
+| Blue | `#3a7bd5` | Side notes, context, system status |
+
+**7-beat progression** (1s per beat, 7s scene):
+
+| Beat | Name | What happens |
+| --- | --- | --- |
+| 0 | 上下文 | Show belt + Xiaohei |
+| 1 | 输入移动 | Cards start travelling |
+| 2 | 断点 | Card falls into pit |
+| 3 | 下一段 | Xiaohei leans toward pit |
+| 4 | 输出移动 | Xiaohei pulls card out |
+| 5 | 结果 | Card resumes, output bin appears |
+| 6 | 总结 | Summary annotation draws in |
+
+**SVG layering:** `background → mainObject → xiaohei → inputs → arrows → annotations`
+
+```sh
+node src/cli/main.ts examples/xiaohei-motion/video.ts timeline
+node src/cli/main.ts examples/xiaohei-motion/video.ts frame --at 3.5s,5.5s,7.5s -o /tmp/xiaohei
+node src/cli/main.ts examples/xiaohei-motion/video.ts render --draft -o xiaohei.mp4
 ```
 
 ### Font note

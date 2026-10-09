@@ -11,6 +11,7 @@ import { popScene } from './pop.ts';
 import { vaporwaveScene } from './vaporwave.ts';
 import { inkScene } from './ink.ts';
 import { caveScene } from './cave.ts';
+import { xiaoheiScene } from './xiaohei.ts';
 
 // Register all implemented styles
 registerStyle(postimpScene);
@@ -20,6 +21,7 @@ registerStyle(popScene);
 registerStyle(vaporwaveScene);
 registerStyle(inkScene);
 registerStyle(caveScene);
+registerStyle(xiaoheiScene);
 
 export { postimpScene } from './postimp.ts';
 export { pixel8bitScene } from './pixel8bit.ts';
@@ -28,3 +30,4 @@ export { popScene } from './pop.ts';
 export { vaporwaveScene } from './vaporwave.ts';
 export { inkScene } from './ink.ts';
 export { caveScene } from './cave.ts';
+export { xiaoheiScene } from './xiaohei.ts';
