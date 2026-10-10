@@ -449,3 +449,55 @@ fonts() {
   ];
 }
 ```
+
+## 5. Typeset: Chinese typography (`src/typeset/`)
+
+A Chinese typesetting engine ported from
+[chengyi-ai/cy-carousel-skill](https://github.com/chengyi-ai/cy-carousel-skill) (MIT). The renderer
+itself cannot measure text (`@resvg/resvg-js` has no measurement API); this module parses the font
+tables (`head` / `hhea` / `cmap` / `hmtx` / `loca` / `glyf`) to measure, then breaks lines and emits
+per-glyph SVG. Everything is re-exported from `src/index.ts` — no deep imports needed.
+
+- **`FontMetrics.load(path, { index })`** — zero-dependency metrics, `.ttc` collections included;
+  `width(text, size)`, `advanceEm`, `boundsEm`, `ascentEm`, `family`
+- **`atoms` / `wrapText`** — semantic Chinese line breaking in three layers: atomisation (names,
+  dates, number+unit, 《》, quoted phrases, latin words; punctuation sticks to the word before it) →
+  clause breaking at `，。：；！？…` → scored breaks (punctuation 3 pts, function words 1 pt, a
+  break starting with 「的」「了」… or leaving an orphan is disqualified) + the orphan guard
+- **`typeset`** — a text block → SVG: the dash 「—」 is a thin rect on the ink centre of 「国」,
+  the ellipsis 「…」 three dots, 【】· compressed with side-bearing fixes, latin in its own face on
+  the shared baseline, justify only widens soft-broken lines, missing glyphs throw with the code
+  point (no tofu), `maxLines` truncates with a real ellipsis
+- **`renderCard` / `cardScene`** — a full card from title/body/emphasis/note/image/rule/spacer
+  blocks; six-step scale ladder (1.08 → 0.76) plus elastic gaps decides the type size, throws
+  "needs Xpx, has Ypx" instead of clipping; blocks fade in with `appear` (scene-local seconds)
+
+### Quick start
+
+```ts
+import { FontMetrics, cardScene } from '../src/index.ts';
+
+const song = FontMetrics.load('/System/Library/Fonts/Supplemental/Songti.ttc');
+const hei = FontMetrics.load('/System/Library/Fonts/Hiragino Sans GB.ttc', { index: 0 });
+
+const scene = cardScene({
+  width: 1080, height: 1440, background: '#f7f4ee',
+  face: { family: 'Songti SC', metrics: song },
+  titleFace: { family: 'Hiragino Sans GB W3', metrics: hei },
+  blocks: [
+    { kind: 'text', text: '把话断在\n该断的地方', role: 'title', appear: { at: 0.15, dur: 0.7 } },
+    { kind: 'rule' },
+    { kind: 'text', text: '正文——两端对齐、标点悬挂。', role: 'body', justify: true },
+  ],
+  footer: 'fframes-node · typeset',
+}, 3.2);
+```
+
+`fonts()` must list the same files `FontMetrics.load` reads. `examples/typeset-card/video.ts` is the
+complete example:
+
+```sh
+node src/cli/main.ts examples/typeset-card/video.ts timeline
+node src/cli/main.ts examples/typeset-card/video.ts frame --at 2.5s --draft -o cover.png
+node src/cli/main.ts examples/typeset-card/video.ts render --draft -o typeset-card.mp4
+```

@@ -365,6 +365,67 @@ out to a private `videocut-cli.cjs` Runtime and drive real timeline, material an
 against it. That editing model has no equivalent here: this framework renders frames it computes
 itself, so only the style rules could come across, not the operations.
 
+## Typeset: Chinese typography
+
+`src/typeset/` is the port's second addition (after `src/art/`): a Chinese typesetting engine ported
+from [chengyi-ai/cy-carousel-skill](https://github.com/chengyi-ai/cy-carousel-skill) (MIT), a Python
+carousel generator. What came across is the layout algorithm and its typographic rules,
+re-implemented from scratch — the upstream draws glyph by glyph onto a PIL bitmap, this port
+measures font tables and emits an SVG glyph tree.
+
+It exists because the render pipeline cannot measure text: `@resvg/resvg-js` exposes no measurement
+API, and without "how wide is this line" there is no semantic line breaking, no fitting, no
+auto-sizing. `FontMetrics` parses `head` / `hhea` / `cmap` / `hmtx` / `loca` / `glyf` / `name` from
+the font file itself (zero dependencies), so measurement and rendering read the same `hmtx` table —
+widths agree with resvg/HarfBuzz, and the one known deviation (kerning is ignored) is in the safe
+direction.
+
+```
+src/typeset/font-metrics.ts   the zero-dependency SFNT parser, .ttc collections included
+src/typeset/wrap.ts           atoms() + wrapText(): semantic Chinese line breaking
+src/typeset/text.ts           typeset(): a text block → SVG (the typographic rules)
+src/typeset/card.ts           renderCard() / cardScene(): a fitted card with appear animations
+src/typeset/index.ts          the module surface
+```
+
+Everything here **is** re-exported from `src/index.ts` (unlike `src/art/`):
+
+```ts
+import { FontMetrics, typeset, renderCard, cardScene } from './src/index.ts';
+
+const songti = FontMetrics.load('/System/Library/Fonts/Supplemental/Songti.ttc');
+const face = { family: 'Songti SC', metrics: songti };
+const block = typeset('太极空间，让每一次呼吸都值得记录。', { width: 800, size: 44, face });
+```
+
+Line breaking runs in three layers: **atomisation** (names, dates, number+unit, 《》 and quoted
+phrases, latin words become single atoms; punctuation sticks to the word before it, opening quotes
+to the word after), **clause breaking** at `，。：；！？…`, and a **scored break** for clauses that
+still do not fit — 3 points at punctuation, 1 after a function word, a break that would start with
+「的」「了」… or leave an orphan is disqualified, balanced lines win, and the last atom is nudged
+down to fill a two-char last line.
+
+The typographic rules (ported from the upstream's tests): the dash 「—」 is drawn as a thin rect
+(0.74 em) centred on the ink centre of 「国」 rather than set in the font, the ellipsis 「…」 as
+three 1/3-em-pitch dots, 【】 compresses to a 0.44 em advance with side-bearing corrections, 「·」 to
+0.30 em, and digits/latin can render in their own face on the shared baseline. A glyph the face
+does not have tries `latin`, then `fallback`, then throws with the code point — no tofu, ever.
+
+`renderCard` takes title/body/emphasis/note/image/rule/spacer blocks and fits them the way the
+upstream does: a six-step scale ladder picks the first size that fits (1.08 → 0.76), leftover space
+goes into elastic gaps rather than the bottom of the page, images shrink ×0.85 before the type
+does, and if even the smallest ladder overflows it throws with "needs 1816px, has 1267px" instead
+of clipping or shrinking to illegibility. Blocks fade in with `appear`; `cardScene(spec, seconds)`
+wraps one into a `Scene`.
+
+```sh
+node src/cli/main.ts examples/typeset-card/video.ts frame --at 2.5s --draft -o cover.png
+node src/cli/main.ts examples/typeset-card/video.ts render -o typeset-card.mp4
+```
+
+`test/typeset.test.ts` pins the whole thing: the atomisation and breaking tests are deterministic
+(10 px per code point, no fonts), the rendering tests run against the macOS system fonts.
+
 ## Examples
 
 | example | what it shows |
@@ -374,6 +435,7 @@ itself, so only the style rules could come across, not the operations.
 | `examples/broken-video` | a missing font and a missing audio file, for `inspect` to find (exit code 2) |
 | `examples/art-styles` | a 31 s tour of the `src/art` styles: cave → Van Gogh → Bauhaus → Pop → 8-bit → Vaporwave → ink |
 | `examples/xiaohei-motion` | the `37_xiaohei` style on its own: a 7-beat "sorting task" scene with a beat indicator |
+| `examples/typeset-card` | Chinese knowledge cards: semantic wrapping, the scale ladder, appear animations (`src/typeset`) |
 
 ## Repository layout
 
@@ -386,6 +448,7 @@ src/encode/     the ffmpeg encoder
 src/inspect/    the diagnostics behind `inspect`
 src/cli/        the command line
 src/art/        art-style scenes, explainer grammars and transitions (an addition, not in the Rust original)
+src/typeset/    Chinese typography: font metrics, semantic wrapping, cards (an addition, not in the Rust original)
 src/index.ts    the public API
 ```
 

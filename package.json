@@ -10,7 +10,7 @@
     "fframes": "./src/cli/main.ts"
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test 'test/**/*.test.ts'",
     "typecheck": "tsc --noEmit",
     "studio": "node --env-file-if-exists=.env src/studio/server.ts"
   },

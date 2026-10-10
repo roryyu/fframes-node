@@ -277,6 +277,41 @@ export type {
   Severity,
 } from './inspect/diagnostics.ts';
 
+// --- typeset: Chinese typography (font metrics, wrapping, cards) -----------
+// Ported from cy-carousel (chengyi-ai/cy-carousel-skill, MIT) — see README's "Typeset" section.
+export { FontMetrics } from './typeset/font-metrics.ts';
+export type { FontMetricsOptions, GlyphBounds } from './typeset/font-metrics.ts';
+
+export {
+  atoms,
+  CLAUSE_END,
+  CLOSING,
+  FRIENDLY_AFTER,
+  NO_START,
+  OPENING,
+  visibleLength,
+  wrapText,
+  wrapTextDetailed,
+} from './typeset/wrap.ts';
+export type { AtomsOptions, WrapLine, WrapOptions } from './typeset/wrap.ts';
+
+export { typeset } from './typeset/text.ts';
+export type { FontFace, TypeSetGlyph, TypeSetOptions, TypeSetResult, TypeSetSpecial } from './typeset/text.ts';
+
+export { cardScene, renderCard } from './typeset/card.ts';
+export type {
+  AppearSpec,
+  CardBlock,
+  CardImageBlock,
+  CardPlacement,
+  CardResult,
+  CardRuleBlock,
+  CardSpacerBlock,
+  CardSpec,
+  CardTextBlock,
+  TextRole,
+} from './typeset/card.ts';
+
 // --- the CLI, importable (the commands, not the entry point) ---------------
 export { defaultOutputFor, ensureParent, renderText, renderVideo, RENDER_SPECS } from './cli/render.ts';
 export type { RenderReport, RenderVideoOptions } from './cli/render.ts';

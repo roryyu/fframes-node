@@ -85,30 +85,56 @@ test('index.ts does not statically depend on the CLI entry point', () => {
 test('the barrel is a leaf, and only the video modules import it', () => {
   const files = srcFiles();
 
-  // Nothing inside the port imports the public barrel. If a module under src/ did, deleting the
-  // CLI re-export would not be enough: the cycle would just move.
-  const importers = files.filter((file) =>
-    /\bfrom\s+['"](?:\.\.\/)*index\.ts['"]/.test(withoutComments(read(file))),
+  // Nothing inside the port imports the public barrel *that the barrel reaches back to*: the
+  // cycle needs both halves, and `src/studio/` is the one subtree the barrel never re-exports.
+  // The studio is its own entry point (`npm run studio`) and talks to the library through the
+  // public API by design (src/studio/pipeline.ts, §5.1 of STUDIO-DELIVERY.md), so its
+  // `from '../index.ts'` imports cannot close the cycle. The exemption rests on that fact alone
+  // and the next test locks the fact itself.
+  const importers = files.filter(
+    (file) =>
+      !file.startsWith('src/studio/') &&
+      /\bfrom\s+['"](?:\.\.\/)*index\.ts['"]/.test(withoutComments(read(file))),
   );
-  assert.deepEqual(importers, [], 'src/ must not import the public barrel');
+  assert.deepEqual(importers, [], 'src/ must not import the public barrel (outside src/studio)');
 
   // The command modules stay free of main.ts, which is what makes the re-exports of the other
   // cli/ modules in index.ts safe (they cannot be part of the cycle). The pattern insists on a path
   // separator, so a hypothetical `domain.ts` could not trip it.
-  const mainImporters = files.filter((file) =>
-    /\bfrom\s+['"][^'"]*\/main\.ts['"]/.test(withoutComments(read(file))),
+  //
+  // `src/studio/` is exempt for the same reason as above and under the same lock: the barrel never
+  // reaches it, so its `'../cli/main.ts'` imports (mediaDirFor / loadVideo, deliberate — see
+  // src/studio/pipeline.ts) sit on a different evaluation path than the CLI's own. `main.ts` only
+  // calls `runCli` behind its entry-point check, so loading it costs nothing.
+  const mainImporters = files.filter(
+    (file) =>
+      !file.startsWith('src/studio/') &&
+      /\bfrom\s+['"][^'"]*\/main\.ts['"]/.test(withoutComments(read(file))),
   );
-  assert.deepEqual(mainImporters, [], 'no module under src/ imports cli/main.ts');
+  assert.deepEqual(mainImporters, [], 'src/ must not import cli/main.ts (outside src/studio)');
 
   // The other side of the cycle, stated so the two halves stay in step: every example video gets
   // its API from the barrel, which is exactly why the barrel must not reach back into the CLI.
-  for (const example of ['hello-world', 'audio-demo', 'broken-video']) {
+  for (const example of ['hello-world', 'audio-demo', 'broken-video', 'typeset-card']) {
     assert.match(
       withoutComments(read(`examples/${example}/video.ts`)),
       /\bfrom\s+['"]\.\.\/\.\.\/src\/index\.ts['"]/,
       `examples/${example}/video.ts imports the public API from the barrel`,
     );
   }
+});
+
+test('the barrel does not reach src/studio, which is what makes the studio exemption sound', () => {
+  // `src/studio/` imports the public barrel (the test above exempts it); that is only safe while
+  // the barrel never re-exports the studio, because the re-export would close the cycle again.
+  // This is the other half of the exemption, so it is asserted rather than left to prose.
+  const code = withoutComments(read('src/index.ts'));
+  assert.equal(
+    /['"][^'"]*studio/i.test(code),
+    false,
+    'index.ts must not re-export src/studio: the studio imports the barrel, so the re-export ' +
+      'would close the module-graph cycle this file exists to prevent',
+  );
 });
 
 test('the CLI keeps the entry point shape the contract asks for', () => {
